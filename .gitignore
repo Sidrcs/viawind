@@ -1,6 +1,6 @@
 
 datasets/uswtdb.shx
-*.cpg
-*.dbf
-*.prj
-*.shp
+datasets/uswtdb.cpg
+datasets/uswtdb.dbf
+datasets/uswtdb.prj
+datasets/uswtdb.shp
