@@ -1,0 +1,6 @@
+
+datasets/uswtdb.shx
+*.cpg
+*.dbf
+*.prj
+*.shp
