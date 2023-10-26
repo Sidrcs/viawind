@@ -9,3 +9,6 @@ datasets/USGS_13_n29w098_20211103.tif
 datasets/USGS_one_meter_x64y313_TX_RedRiver_Atacosa_B1_2018.tif
 datasets/USGS_one_meter_x64y313_TX_South_B5_2018.tif
 datasets/USGS_one_meter_x65y314_TX_RedRiver_Atacosa_B1_2018.tif
+datasets/USGS_DEM_deflate.tif
+datasets/USGS_DEM_deflate.tif.ovr
+datasets/viewshed_complete.tif
