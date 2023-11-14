@@ -16,3 +16,4 @@ datasets/viewshed_complete.tif
 viewsheds_hub/viewshed_1_hub.tif.ovr
 *.xml
 *.ovr
+*.lock
