@@ -1,1 +1,29 @@
- 
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "viawind"
+version = "0.0.1"
+authors = [
+  { name="Siddharth Ramavajjala", email="siddharthrcs@gmail.com" },
+]
+description = "Python package to help calculate Visual Impact Assessment (VIA) of onshore wind turbine projects"
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+
+
+]
+
+[options]
+packages = ["viawind"]
+
+[project.urls]
+"Homepage" = "https://github.com/Sidrcs/Visual_Impact_Assessment"
+"Bug Tracker" = "https://github.com/Sidrcs/Visual_Impact_Assessment/issues" 
