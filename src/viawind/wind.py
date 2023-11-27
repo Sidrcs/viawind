@@ -8,12 +8,12 @@ import os
 import math
 
 import geopandas as gpd
+import pandas as pd
 
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 from matplotlib.colors import ListedColormap
 
-from shapely.geometry import Point, MultiPolygon
+from shapely.geometry import MultiPolygon
 from osgeo import gdal
 
 import numpy as np
@@ -21,7 +21,7 @@ from numpy import int16
 
 import rioxarray as rxr
 import rasterio as rio
-from rasterio.plot import show,show_hist
+from rasterio.plot import show
 from rasterio.merge import merge
 from rasterio.enums import Resampling, MergeAlg
 from rasterio import features
@@ -36,22 +36,35 @@ class CalcVisualImpact:
 
     def read_windturbine_file(self):
         """Function to read US Wind Turbine dataset"""
-        # Reads shapefile and reprojects it to EPSG:3857
-        if self.windturbine_fpath.endswith(".shp"):
-            gdf = gpd.read_file(f"{self.windturbine_fpath}")
-            gdf = gdf.to_crs(3857)
-            return gdf
-        # Reads CSV and reprojects it to EPSG:3857
-        if self.windturbine_fpath.endswith(".csv"):
-            gdf = gpd.read_file(f"{self.windturbine_fpath}")
-            # Populate geometry column with lat, lon data from US Wind Turbine database
-            gdf["geometry"] = gdf.apply(lambda x: Point(x['xlong'], x['ylat']), axis=1)
-            # Set CRS to 3D coordinate systems ESPG:4326
-            gdf = gdf.set_crs(4326)
-            # Reproject to EPSG:3857
-            gdf = gdf.to_crs(3857)
-            return gdf
-        return None
+        try:
+            # Reads shapefile and reprojects it to EPSG:3857
+            if self.windturbine_fpath.endswith(".shp"):
+                gdf = gpd.read_file(f"{self.windturbine_fpath}")
+                gdf = gdf.to_crs(3857)
+                return gdf
+            # Reads CSV and reprojects it to EPSG:3857
+            if self.windturbine_fpath.endswith(".csv"):
+                df = pd.read_csv(f"{self.windturbine_fpath}")
+                # Extract column names as list from dataframe
+                col_list = list(gdf.columns.values)
+                # Remove pre-existing geometry column
+                if "geometry" in col_list:
+                    df = df.drop(labels=["geometry"], axis=1)
+                if "xlong" and "ylat" not in col_list:
+                    raise ValueError("Latitude, Longitude columns has to be renamed as xlong, ylat")
+                if df["xlong"] not in range(-180,181):
+                    raise ValueError("Lon/Lat CRS is not EPSG:4326. Please use EPSG:4326 only")
+                # Populate geometry column with lat, lon data from US Wind Turbine database
+                gdf = gpd.GeoDataFrame(data=df, geometry=gpd.points_from_xy(df['xlong'], df['ylat']))
+                # Set CRS to 3D coordinate systems ESPG:4326
+                gdf = gdf.set_crs(4326)
+                # Reproject to EPSG:3857
+                gdf = gdf.to_crs(3857)
+                return gdf
+        except IOError as e:
+            print(f"File does not exist in the path and {str(e)}")
+        except ValueError as e:
+            print(f"{str(e)}. Populate data as in US Wind Turbine database format")
     
     def read_dem(self):
         """Function to read, reproject and returns reprojected raster file path"""
@@ -405,7 +418,7 @@ class CalcVisualImpact:
         print(f"Created a visual prominence shapefile at {output_dir}")
         return (gdf,col_name)
 
-    def visualize_mean_prominence(self, county_state):
+    def visualize_mean_prominence(self, county_state_title):
         """To visualize wind turbine mean prominence"""
         # Read tuple with geodataframe, column name
         viz_tuple = self.perform_visual_prominence_bind()
@@ -430,7 +443,7 @@ class CalcVisualImpact:
             ax.get_legend().set_title("Mean Prominence")
             ax.get_legend().set_bbox_to_anchor((1, 1))
         # Set axes labels
-        plt.title(f"Mean Visual Prominence of Wind Turbines in {county_state}")
+        plt.title(f"Mean Visual Prominence of Wind Turbines in {county_state_title}")
         plt.xlabel("Longitude")
         plt.ylabel("Latitude")
         plt.savefig("mean_turbine_prominence.png", dpi=300)
@@ -438,26 +451,33 @@ class CalcVisualImpact:
 
     def visualize_dem(self, cmap="gist_earth", title="Digital Elevation Model"):
         """Function to visualize DEM"""
-        dst = rio.open(self.read_dem())
-        fig, ax = plt.subplots(figsize=(10,5))
-        image_hidden = ax.imshow(dst.read()[0], cmap=cmap)
-        fig.colorbar(image_hidden, ax=ax, cmap=cmap)
-        show(dst,ax=ax, cmap=cmap)
-        ax.set_title(f'{title} (EPSG:{dst.crs.to_epsg()})')
-        plt.xlabel(f'Longitude ({dst.crs.units_factor[0]})')
-        plt.ylabel(f'Latitude ({dst.crs.units_factor[0]})')
-        plt.show()
-        dst = None
-    
+        try:
+            dst = rio.open(self.read_dem())
+            fig, ax = plt.subplots(figsize=(10,5))
+            image_hidden = ax.imshow(dst.read()[0], cmap=cmap)
+            fig.colorbar(image_hidden, ax=ax, cmap=cmap)
+            show(dst,ax=ax, cmap=cmap)
+            ax.set_title(f'{title} (EPSG:{dst.crs.to_epsg()})')
+            plt.xlabel(f'Longitude ({dst.crs.units_factor[0]})')
+            plt.ylabel(f'Latitude ({dst.crs.units_factor[0]})')
+            plt.show()
+        finally:
+            if "dst" in locals() and dst is not None:
+                dst.close()
+
     # Creates a plot for viewshed with legend
     def visualize_viewshed_windturbine(self, viewshed_fpath, turbine_index, cmap="gist_yarg", title="Viewshed for Wind Turbine"):
         """Function to create visualization of viewshed with legend"""
         try:
+            gdf = self.read_windturbine_file()
+            if not isinstance(turbine_index, int):
+                raise TypeError("Turbine index has to be an integer")
+            if turbine_index not in range(1, len(gdf)+1):
+                raise ValueError(f"Turbine index has to be in range (1,{len(gdf)})")
             viewshed = rio.open(viewshed_fpath)
             fig, ax = plt.subplots(figsize=(10,5))
             image_hidden = ax.imshow(viewshed.read()[0], cmap=cmap)
             fig.colorbar(image_hidden, ax=ax, cmap=cmap)
-            gdf = self.read_windturbine_file()
             i = int(turbine_index)
             gdf.iloc[i:i+1].plot(ax=ax, marker="", color="gray")
             show(viewshed, ax=ax, cmap=cmap)
@@ -467,7 +487,14 @@ class CalcVisualImpact:
             plt.show()
             viewshed = None
         except TypeError as e:
-            print(f"TypeError: {e}. Turbine index has to be an integer.")
+            print(f"{str(e)}")
+        except ValueError as e:
+            print(f"{str(e)}")
+        except IOError as e:
+            print(f"File does not exist in path. {str(e)}")
+        finally:
+            if "viewshed" in locals() and viewshed is not None:
+                viewshed.close()
 
 
 
