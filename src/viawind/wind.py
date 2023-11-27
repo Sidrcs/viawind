@@ -68,13 +68,22 @@ class CalcVisualImpact:
     
     def read_dem(self):
         """Function to read, reproject and returns reprojected raster file path"""
-        dem = rxr.open_rasterio(f"{self.dem_fpath}")
-        # Reprojects raster to EPSG:3857
-        dem_reproj = dem.rio.reproject(3857)
-        reproj_fpath = self.dem_fpath.replace(".tif", "_reproj.tif")
-        # Output raster to reproj_fpath
-        dem_reproj.to_raster(reproj_fpath)
-        return reproj_fpath
+        # Check if the input raster file exists
+        try:
+            if not os.path.exists(self.dem_fpath):
+                raise FileNotFoundError(f"Raster file not found: {self.dem_fpath}")
+            dem = rxr.open_rasterio(f"{self.dem_fpath}")
+            # Reprojects raster to EPSG:3857
+            dem_reproj = dem.rio.reproject(3857)
+            reproj_fpath = self.dem_fpath.replace(".tif", "_reproj.tif")
+            # Output raster to reproj_fpath
+            dem_reproj.to_raster(reproj_fpath)
+            return reproj_fpath
+        finally:
+            if "dem" in locals() and dem is not None:
+                dem = None
+            if "dem_reproj" in locals() and dem_reproj is not None:
+                dem_reproj = None
     
     def create_relative_viewshed(self, output_dir, height, height_name):
         """Function to create relative viewsheds based on wind turbine height"""
@@ -219,6 +228,8 @@ class CalcVisualImpact:
 
     def create_turbine_multiringbuffer_raster(self, output_dir="raster_buffers", buffer_val_list=None):
         """Function create MultiRingBuffer rasters for wind turbine locations"""
+        if not isinstance(buffer_val_list, list):
+            raise TypeError("Buffer value list has to be list type like [1,2,3,4]")
         # Create an empty list to store raster file paths
         raster_flist = []
         # Read both shapefile and DEM raster
@@ -233,10 +244,9 @@ class CalcVisualImpact:
             # Function to create a MultiPolygon buffer for the radii
             buffers = self.create_multiring_buffer(point_geom, radii)
             output_raster_path = os.path.join(output_dir, f"rasterized_{index+1}_turbine_buffer.tif")
-            if buffer_val_list is None:
-                buffer_val_list = []
             # Burn the following values under each pixel of the MultiRing Buffer
-            buffer_val_list = [1,2,3,4]
+            if buffer_val_list is None:
+                buffer_val_list = [1,2,3,4]
             # Functiom to rasterize the MultiRing buffer
             self.rasterize_concentric_buffers(ref_raster, buffers, buffer_val_list, output_raster_path)
             raster_flist.append(output_raster_path)
@@ -300,7 +310,7 @@ class CalcVisualImpact:
 
         print(f"Reclassification complete for visual prominence and output saved to {output_dir}")
 
-    def reclass_meaningful_visibility_raster(self, output_dir="visual_exposure"):
+    def reclass_meaningful_visibility_rasters(self, output_dir="visual_exposure"):
         """Function to reclass visual exposure rasters to reflect meaningful visibility"""
         for file in os.listdir(output_dir):
             input_raster = os.path.join(output_dir, file)
@@ -495,6 +505,19 @@ class CalcVisualImpact:
         finally:
             if "viewshed" in locals() and viewshed is not None:
                 viewshed.close()
+
+    def run_via_pipeline(self, county_state_title):
+        """Function to run complete VIA GIS pipeline"""
+        self.create_relative_turbine_viewsheds()
+        self.reclass_relative_turbine_viewsheds()
+        self.perform_viewsheds_merge()
+        self.create_turbine_multiringbuffer_raster()
+        self.perform_viz_prominence()
+        self.reclass_viz_prominence_rasters()
+        self.reclass_meaningful_visibility_rasters()
+        vizprom_fpath = self.perform_cumulative_viz_prominence()
+        mv_fpath = self.perform_cumulative_meaningful_viz()
+        self.visualize_mean_prominence(county_state_title)
 
 
 
