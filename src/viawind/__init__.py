@@ -1,1 +1,1 @@
- 
+from .wind import CalcVisualImpact

@@ -422,18 +422,54 @@ class CalcVisualImpact:
         color_scheme = ["#1a9641", "#a6d96a","#ffffbf", "#fdae61", "#d7191c"]
         cmap = ListedColormap(color_scheme)
         # Plot the GeoDataFrame with proportional symbols
-        ax = gdf.plot(column=col_name, markersize=gdf['normalized_sizes']*20,
-                      legend=True, cmap=cmap, scheme = 'NaturalBreaks', k=5,
-                      edgecolor='#252525', aspect='equal', linewidth=0.7)
+        ax = gdf.plot(column=col_name, markersize=gdf["normalized_sizes"]*20,
+                      legend=True, cmap=cmap, scheme="NaturalBreaks", k=5,
+                      edgecolor="#252525", aspect="equal", linewidth=0.7)
         # Set the number of legend classes
         if ax.get_legend():
-            ax.get_legend().set_title('Mean Prominence')
+            ax.get_legend().set_title("Mean Prominence")
             ax.get_legend().set_bbox_to_anchor((1, 1))
         # Set axes labels
         plt.title(f"Mean Visual Prominence of Wind Turbines in {county_state}")
         plt.xlabel("Longitude")
         plt.ylabel("Latitude")
+        plt.savefig("mean_turbine_prominence.png", dpi=300)
         plt.show()
+
+    def visualize_dem(self, cmap="gist_earth", title="Digital Elevation Model"):
+        """Function to visualize DEM"""
+        dst = rio.open(self.read_dem())
+        fig, ax = plt.subplots(figsize=(10,5))
+        image_hidden = ax.imshow(dst.read()[0], cmap=cmap)
+        fig.colorbar(image_hidden, ax=ax, cmap=cmap)
+        show(dst,ax=ax, cmap=cmap)
+        ax.set_title(f'{title} (EPSG:{dst.crs.to_epsg()})')
+        plt.xlabel(f'Longitude ({dst.crs.units_factor[0]})')
+        plt.ylabel(f'Latitude ({dst.crs.units_factor[0]})')
+        plt.show()
+        dst = None
+    
+    # Creates a plot for viewshed with legend
+    def visualize_viewshed_windturbine(self, viewshed_fpath, turbine_index, cmap="gist_yarg", title="Viewshed for Wind Turbine"):
+        """Function to create visualization of viewshed with legend"""
+        try:
+            viewshed = rio.open(viewshed_fpath)
+            fig, ax = plt.subplots(figsize=(10,5))
+            image_hidden = ax.imshow(viewshed.read()[0], cmap=cmap)
+            fig.colorbar(image_hidden, ax=ax, cmap=cmap)
+            gdf = self.read_windturbine_file()
+            i = int(turbine_index)
+            gdf.iloc[i:i+1].plot(ax=ax, marker="", color="gray")
+            show(viewshed, ax=ax, cmap=cmap)
+            ax.set_title(f"{title}  (EPSG:{viewshed.crs.to_epsg()})")
+            plt.xlabel(f'Longitude ({viewshed.crs.units_factor[0]})')
+            plt.ylabel(f'Latitude ({viewshed.crs.units_factor[0]})')
+            plt.show()
+            viewshed = None
+        except TypeError as e:
+            print(f"TypeError: {e}. Turbine index has to be an integer.")
+
+
 
 
 
