@@ -16,16 +16,16 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
+
 dependencies = [
-"geopandas",
-"matplotlib",
-"numpy",
-"osgeo",
-"pandas",
-"rasterio",
-"rioxarray"
-"setuptools"
-"Shapely"
+  "geopandas",
+  "matplotlib",
+  "numpy",
+  "pandas",
+  "rasterio",
+  "rioxarray",
+  "setuptools",
+  "Shapely"
 ]
 
 [options]

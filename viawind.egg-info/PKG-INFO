@@ -1,0 +1,30 @@
+Metadata-Version: 2.1
+Name: viawind
+Version: 0.0.1
+Summary: Python package to help calculate Visual Impact Assessment (VIA) of onshore wind turbine projects
+Author-email: Siddharth Ramavajjala <siddharthrcs@gmail.com>
+Project-URL: Homepage, https://github.com/Sidrcs/Visual_Impact_Assessment
+Project-URL: Bug Tracker, https://github.com/Sidrcs/Visual_Impact_Assessment/issues
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: geopandas
+Requires-Dist: matplotlib
+Requires-Dist: numpy
+Requires-Dist: pandas
+Requires-Dist: rasterio
+Requires-Dist: rioxarray
+Requires-Dist: setuptools
+Requires-Dist: Shapely
+
+## Open-source Python Package development for Visual Impact Assessment (VIA) of Onshore Wind Turbines
+Chinna Subbaraya Siddharth Ramavajjala<sup>1</sup>
+Department of Geography, University of Wisconsin - Madison
+Madison, Wisconsin, United States of America 
+
+### Adopted GIS Workflow (Palmer 2022)
+<img src="https://github.com/Sidrcs/Visual_Impact_Assessment/blob/main/Graphics/GIS_Workflow.png?raw=true">
+ 
