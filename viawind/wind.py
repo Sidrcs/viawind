@@ -6,6 +6,10 @@ Description: Package to perform visual impact assessment (via)
 
 import os
 import math
+import warnings
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore", message="Column names longer than 10 characters will be truncated when saved to ESRI Shapefile")
+    warnings.filterwarnings("ignore", message="KMeans is known to have a memory leak on Windows with MKL, when there are less chunks than available threads. You can avoid it by setting the environment variable OMP_NUM_THREADS=1")
 
 import geopandas as gpd
 import pandas as pd
@@ -44,6 +48,10 @@ class CalcVisualImpact:
             print(f"{str(e)}")
         finally:
             os.chdir(dir_path)
+            print("- Suggested to wind turbine data as in US Wind Turbine database: https://eerscmap.usgs.gov/uswtdb/data/")
+            print("- Suggested to use a Digital Surface Model (DSM) instead of a Digital Elevation Model (DEM) for better results")
+            print("- Try to use 1-arc second or 1/3-arc second DEM, if there is no scope to utilize a DSM")
+
 
     def read_windturbine_file(self):
         """Function to read US Wind Turbine dataset"""
@@ -487,7 +495,7 @@ class CalcVisualImpact:
         plt.title(f"Mean Visual Prominence of Wind Turbines in {county_state_title}")
         plt.xlabel("Longitude")
         plt.ylabel("Latitude")
-        plt.savefig("mean_turbine_prominence.png", dpi=300)
+        plt.savefig("mean_turbine_prominence.png", dpi=300, bbox_inches="tight")
         plt.show()
 
     def visualize_dem(self, cmap="gist_earth", title="Digital Elevation Model"):
@@ -549,6 +557,8 @@ class CalcVisualImpact:
     def run_via_pipeline(self, county_state_title):
         """Function to run complete VIA GIS pipeline"""
         print("VIA GIS Pipeline is executing and it takes quite a while....")
+        file_size = os.path.getsize(self.dem_fpath)
+        print(f"File Size in Bytes is {file_size}")
         self.create_relative_turbine_viewsheds()
         self.reclass_relative_turbine_viewsheds()
         self.perform_viewsheds_merge()
