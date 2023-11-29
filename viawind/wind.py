@@ -556,17 +556,24 @@ class CalcVisualImpact:
 
     def run_via_pipeline(self, county_state_title):
         """Function to run complete VIA GIS pipeline"""
-        print("VIA GIS Pipeline is executing and it takes quite a while....")
-        file_size = os.path.getsize(self.dem_fpath)
-        print(f"File Size in Bytes is {file_size}")
-        self.create_relative_turbine_viewsheds()
-        self.reclass_relative_turbine_viewsheds()
-        self.perform_viewsheds_merge()
-        self.create_turbine_multiringbuffer_raster()
-        self.perform_viz_prominence()
-        self.reclass_viz_prominence_rasters()
-        self.reclass_meaningful_visibility_rasters()
-        self.visualize_mean_prominence(county_state_title)
+        try:
+            print("VIA GIS Pipeline is executing and it takes quite a while....")
+            file_size = os.path.getsize(self.dem_fpath)
+            fs = round(file_size*0.000001, 2)
+            print(f"Raster file size in MegaBytes (MB) is around {fs}")
+            print("Approximate compute time to run pipeline: 1-2 hrs (might vary across computers)")
+            if fs>=1000:
+                raise MemoryError("Please limit the file size to less than 1 GigaByte (GB)")
+            self.create_relative_turbine_viewsheds()
+            self.reclass_relative_turbine_viewsheds()
+            self.perform_viewsheds_merge()
+            self.create_turbine_multiringbuffer_raster()
+            self.perform_viz_prominence()
+            self.reclass_viz_prominence_rasters()
+            self.reclass_meaningful_visibility_rasters()
+            self.visualize_mean_prominence(county_state_title)
+        except OSError as e:
+            print(f"{str(e)}")
 
 
 
