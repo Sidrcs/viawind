@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "viawind"
-version = "0.0.2"
+version = "0.0.3"
 authors = [
   { name="Siddharth Ramavajjala", email="siddharthrcs@gmail.com" },
 ]
@@ -18,7 +18,6 @@ classifiers = [
 ]
 
 dependencies = [
-"GDAL==3.7.3",
 "geopandas==0.14.1",
 "matplotlib==3.8.2",
 "numpy==1.26.2",

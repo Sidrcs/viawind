@@ -5,11 +5,9 @@ Description: Package to perform visual impact assessment (via)
 """
 
 import os
-import math
+import shutil
 import warnings
-with warnings.catch_warnings():
-    warnings.filterwarnings("ignore", message="Column names longer than 10 characters will be truncated when saved to ESRI Shapefile")
-    warnings.filterwarnings("ignore", message="KMeans is known to have a memory leak on Windows with MKL, when there are less chunks than available threads. You can avoid it by setting the environment variable OMP_NUM_THREADS=1")
+import math
 
 import geopandas as gpd
 import pandas as pd
@@ -50,11 +48,12 @@ class CalcVisualImpact:
             os.chdir(dir_path)
             print("- Suggested to wind turbine data as in US Wind Turbine database: https://eerscmap.usgs.gov/uswtdb/data/")
             print("- Suggested to use a Digital Surface Model (DSM) instead of a Digital Elevation Model (DEM) for better results")
-            print("- Try to use 1-arc second or 1/3-arc second DEM, if there is no scope to utilize a DSM")
+            print("- Try to use 1-arc second or 1/3-arc second DEM from https://apps.nationalmap.gov/downloader/")
+            warnings.simplefilter(action="ignore", category=UserWarning)
 
 
     def read_windturbine_file(self):
-        """Function to read US Wind Turbine dataset"""
+        """Function to read US Wind Turbine dataset: Shapefile/CSV format"""
         try:
             # Reads shapefile and reprojects it to EPSG:3857
             if self.windturbine_fpath.endswith(".shp"):
@@ -69,16 +68,21 @@ class CalcVisualImpact:
                 # Remove pre-existing geometry column
                 if "geometry" in col_list:
                     df = df.drop(labels=["geometry"], axis=1)
-                if "xlong" and "ylat" not in col_list:
+                if ["xlong","ylat"] not in col_list:
                     raise ValueError("Latitude, Longitude columns has to be renamed as xlong, ylat")
                 if df["xlong"][0] not in range(-180,181):
                     raise ValueError("Lon/Lat CRS is not EPSG:4326. Please use EPSG:4326 only")
+                if ["t_ttlh","t_hh","t_rsa"] not in col_list:
+                    raise AttributeError("t_ttlh: Turbine total height from ground to tip of a blade at its apex in meters (m)\nt_hh: Turbine hub height in meters (m)\nt_rsa: Turbine rotor sweep area in square meters (m2) columns are mandatory for analysis. Refer - https://eerscmap.usgs.gov/uswtdb/api-doc/#keyValue")
                 # Populate geometry column with lat, lon data from US Wind Turbine database
                 gdf = gpd.GeoDataFrame(data=df, geometry=gpd.points_from_xy(df['xlong'], df['ylat']))
                 # Set CRS to 3D coordinate systems ESPG:4326
                 gdf = gdf.set_crs(4326)
                 # Reproject to EPSG:3857
                 gdf = gdf.to_crs(3857)
+                # Convert the height columns (meters) to float objects
+                convert_dict = {"t_ttlh": float, "t_hh": float, "t_rsa": float}
+                gdf = gdf.astype(convert_dict)
                 return gdf
         except FileNotFoundError:
             print(f"Wind Turbine file not found: {self.windturbine_fpath}")
@@ -107,6 +111,18 @@ class CalcVisualImpact:
                 dem = None
             if "dem_reproj" in locals() and dem_reproj is not None:
                 dem_reproj = None
+
+    def check_dir(self, output_dir):
+        """Function to remove an existing directory and create a fresh directory on re-runs"""
+        try:
+            # Removes a non-empty folder
+            if os.path.exists(output_dir):
+                shutil.rmtree(output_dir)
+            # Create the output directory if it doesn't exist
+            if not os.path.exists(output_dir):
+                os.mkdir(output_dir)
+        except OSError as e:
+            print(f"{str(e)}")
     
     def create_relative_viewshed(self, output_dir, height, height_name):
         """Function to create relative viewsheds based on wind turbine height"""
@@ -125,18 +141,18 @@ class CalcVisualImpact:
             command = f"gdal_viewshed -oz {height} -ox {x} -oy {y} {input_dem} {output_filename}"
             os.system(command)
         fpath = os.path.join(os.getcwd(), output_dir)
-        print(f'{height_name} viewsheds created for {len(gdf)} points and saved at {fpath}')
+        print(f'{height_name} viewsheds created for {len(gdf)} points and outputs saved to {fpath}')
         # Close the input and output datasets
         input_dem = None
         gdf = None
 
-    def create_relative_turbine_viewsheds(self, blade_end="t_ttlh", hub="t_hh", rsa="t_rsa"):
+    def create_relative_turbine_viewsheds(self):
         """Function to compute viewsheds for Turbine Blade End, Hub, Rotor Sweep """
         gdf = self.read_windturbine_file()
-        # Preferred file format from US Wind Turbine Database
-        blade_end_height = gdf[blade_end][0]
-        hub_height = gdf[hub][0]
-        rsa = gdf[rsa][0]
+        # Preferred file format: US Wind Turbine Database
+        blade_end_height = gdf["t_ttlh"][0]
+        hub_height = gdf["t_hh"][0]
+        rsa = gdf["t_rsa"][0]
         rotor_sweep_height = math.sqrt(float(rsa)/math.pi)
         # Creates relative viewsheds in the following directories
         self.create_relative_viewshed("viewsheds_blade_end", blade_end_height, "blade")
@@ -164,7 +180,7 @@ class CalcVisualImpact:
                     with rio.open(output_path, 'w', **profile) as dst:
                         dst.write(reclassified_data, 1)
         fpath = os.path.join(os.getcwd(), viewshed_folder_path)
-        print(f"Reclassification completed and outputs saved as {fpath}")
+        print(f"Reclassification completed and outputs saved to {fpath}")
     
     def reclass_relative_turbine_viewsheds(self):
         """Function to reclassify relative viewsheds - Blade End, Turbine, Rotor Sweep as per Palmer 2022"""
@@ -188,8 +204,10 @@ class CalcVisualImpact:
         with rio.open(output_folder_path, "w", **out_meta) as dest:
             dest.write(merged_data)
 
-    def perform_viewsheds_merge(self, output_dir="viewsheds_merged"):
+    def perform_viewsheds_merge(self):
         """Function to merge - blade end, hub, rotor sweep reclassed rasters"""
+        output_dir = "viewsheds_merged"
+        self.check_dir(output_dir)
         # Creates a list of raster file paths from relative viewshed file directories
         viewsheds_blade_end = [file for file in os.listdir('viewsheds_blade_end') if "rc" in file]
         viewsheds_hub = [file for file in os.listdir('viewsheds_hub') if "rc" in file]
@@ -198,9 +216,6 @@ class CalcVisualImpact:
         sorted_blade_end = sorted(viewsheds_blade_end, key=lambda x: int(x.split('_')[1]))
         sorted_hub = sorted(viewsheds_hub, key=lambda x: int(x.split('_')[1]))
         sorted_rotor_sweep = sorted(viewsheds_rotor_sweep, key=lambda x: int(x.split('_')[1]))
-        # Create the output directory if it doesn't exist
-        if not os.path.exists(output_dir):
-            os.mkdir(output_dir)
         # Perform raster merge for each turbine
         gdf = self.read_windturbine_file()
         for i in range(0,len(gdf)):
@@ -210,7 +225,7 @@ class CalcVisualImpact:
             output_path = f"{output_dir}/merged_{i+1}_viewshed.tif"
             self.merge_viewshed_rasters(input_paths, output_path)
         fpath = os.path.join(os.getcwd(), output_dir)
-        print(f"Performed raster merge for {len(gdf)*3} rasters and save to {fpath} ")
+        print(f"Performed raster merge for {len(gdf)*3} rasters and outputs saved to {fpath} ")
         
     def create_multiring_buffer(self, center_point, radii):
         """Function to create non-intersecting concentric buffers as MultiPolygon"""
@@ -250,16 +265,15 @@ class CalcVisualImpact:
         # Close dataset
         raster = None
 
-    def create_turbine_multiringbuffer_raster(self, buffer_val_list=None, output_dir="raster_buffers"):
+    def create_turbine_multiringbuffer_raster(self, buffer_val_list=None):
         """Function create MultiRingBuffer rasters for wind turbine locations"""
+        output_dir="raster_buffers"
+        self.check_dir(output_dir)
         # Create an empty list to store raster file paths
         raster_flist = []
         # Read both shapefile and DEM raster
         gdf = self.read_windturbine_file()
         ref_raster = self.read_dem()
-        # Create the output directory if it doesn't exist
-        if not os.path.exists(output_dir):
-            os.mkdir(output_dir)
          # Burn the following values under each pixel of the MultiRing Buffer
         if buffer_val_list is None:
             buffer_val_list = [1,2,3,4]
@@ -282,7 +296,7 @@ class CalcVisualImpact:
             point_geom = None
             buffers = None
         fpath = os.path.join(os.getcwd(), output_dir)
-        print(f"MultiRing Buffer rasters ({len(raster_flist)}) created for radii {radii} (meters) with values {buffer_val_list} at {fpath}")
+        print(f"MultiRing Buffer rasters created for {len(raster_flist)} points and outputs saved to {fpath}")
         return raster_flist
     
     def create_turbine_viz_prominence(self, input_paths, output_path):
@@ -296,9 +310,9 @@ class CalcVisualImpact:
         except TypeError as e:
             print(f"File path has to be a string: {str(e)}")
 
-    def perform_viz_prominence(self, output_dir="visual_exposure"):
+    def perform_viz_prominence(self):
         """Function to create visual prominence rasters for each turbine location"""
-        # Create the output directory if it doesn't exist
+        output_dir="visual_exposure"
         if not os.path.exists(output_dir):
             os.mkdir(output_dir)
         # Creates a list of file paths for merged viewshed and raster buffers directories
@@ -314,14 +328,16 @@ class CalcVisualImpact:
                         os.path.join("raster_buffers",sorted_distance_zone_rasters[i])]
             output_path = f"{output_dir}/merged_{i+1}_vizexp.tif"
             self.create_turbine_viz_prominence(input_paths, output_path) 
-        print(f"Performed raw visual exposure calculation and stored at {os.path.join(os.getcwd(), output_dir)}")
+        fpath = os.path.join(os.getcwd(), output_dir)
+        print(f"Performed raw visual exposure calculation and outputs saved to {fpath}")
 
-    def reclass_viz_prominence_rasters(self, output_dir="visual_exposure"):
+    def reclass_viz_prominence_rasters(self):
         """Function reclassify visual pro rasters as per table 3 (Palmer 2022)"""
+        output_dir="visual_exposure"
         for file in os.listdir(output_dir):
             input_raster = os.path.join(output_dir, file)
             # Opens each input raster
-            if input_raster.endswith('.tif') and "rc" not in input_raster:
+            if input_raster.endswith(".tif") and "rc" not in input_raster:
                 with rio.open(input_raster) as src:
                     # Reads the raster data
                     data = src.read(1)
@@ -347,10 +363,11 @@ class CalcVisualImpact:
                                 count=src.count, crs=src.crs, transform=src.transform, dtype=data.dtype) as dst:
                         dst.write(rc, 1)
 
-        print(f"Reclassification complete for visual prominence and output saved to {os.path.join(os.getcwd(), output_dir)}")
+        print(f"Reclassification complete for visual prominence and outputs saved to {os.path.join(os.getcwd(), output_dir)}")
 
-    def reclass_meaningful_visibility_rasters(self, output_dir="visual_exposure"):
+    def reclass_meaningful_visibility_rasters(self):
         """Function to reclass visual exposure rasters to reflect meaningful visibility"""
+        output_dir="visual_exposure"
         for file in os.listdir(output_dir):
             input_raster = os.path.join(output_dir, file)
             # Opens each input raster
@@ -368,13 +385,13 @@ class CalcVisualImpact:
                     for output_value, input_values in reclass_dict.items():
                         rc[np.isin(rc, input_values)] = output_value
                     # Replace the file name to reflect reclassed meaningful visibility
-                    output_raster = file.replace('vizexp.tif', 'mv_rc.tif')
+                    output_raster = file.replace("vizexp.tif", "mv_rc.tif")
                     output_path = os.path.join(output_dir, output_raster)
                     # Write the reclassified data to the output raster
                     with rio.open(output_path, 'w', driver=src.driver, height=src.height, width=src.width,
                                 count=src.count, crs=src.crs, transform=src.transform, dtype=data.dtype) as dst:
                         dst.write(rc, 1)
-        print(f"Reclassification complete for meaningful visibility and output saved to {output_dir}")
+        print(f"Reclassification complete for meaningful visibility and outputs saved to {output_dir}")
 
     def create_cumulative_rasters(self, input_paths, output_path):
         """Function to perform raster sum of input rasters"""
@@ -391,22 +408,24 @@ class CalcVisualImpact:
         raster_sum.rio.to_raster(output_path)
         print(f"Created cumulative raster at {output_path}")
 
-    def perform_cumulative_viz_prominence(self, input_dir="visual_exposure", output_dir="cumulative_outputs"):
+    def perform_cumulative_viz_prominence(self):
         """Function to merge and aggregate visual prominence rasters"""
+        output_dir="cumulative_outputs"
+        self.check_dir(output_dir)
+        input_dir="visual_exposure"
         # Creates a list of all files that contains "rc" string in the input directory
-        input_paths = [os.path.join(input_dir, file) for file in os.listdir(input_dir) if "rc" in file]
-        # Create the output directory if it doesn't exist
-        if not os.path.exists(output_dir):
-            os.mkdir(output_dir)
+        input_paths = [os.path.join(input_dir, file) for file in os.listdir(input_dir) if "rc" in file and file.endswith(".tif")]
         output_path = f"{output_dir}/cumulative_visual_exposure.tif"
         # Function sums all the rastes in the input_paths
         self.create_cumulative_rasters(input_paths, output_path)
         return output_path
 
-    def perform_cumulative_meaningful_viz(self, input_dir="visual_exposure", output_dir="cumulative_outputs"):
+    def perform_cumulative_meaningful_viz(self):
         """Function to merge and aggregate meaningful visibility rasters"""
+        output_dir="cumulative_outputs"
+        input_dir="visual_exposure"
         # Creates a list of all files that contains "mv" string in the input directory
-        input_paths = [os.path.join(input_dir, file) for file in os.listdir(input_dir) if "mv" in file]
+        input_paths = [os.path.join(input_dir, file) for file in os.listdir(input_dir) if "mv" in file and file.endswith(".tif")]
         # Create the output directory if it doesn't exist
         if not os.path.exists(output_dir):
             os.mkdir(output_dir)
@@ -415,23 +434,24 @@ class CalcVisualImpact:
         self.create_cumulative_rasters(input_paths, output_path)
         return output_path
     
-    def calc_mean_prominence(self, vizprom_fpath, mv_fpath, output_dir="cumulative_outputs"):
+    def calc_mean_prominence(self, vizprom_fpath, mv_fpath):
         """Function to divide visual prominence and meaningful visibility"""
+        output_dir="cumulative_outputs"
         with rio.open(vizprom_fpath) as src1, rio.open(mv_fpath) as src2:
             # Read the raster datasets
             data1 = src1.read(1)
             data2 = src2.read(1)
-            # Avoid division by zero
-            data2_nonzero = data2.copy()
-            data2_nonzero[data2 == 0] = 1
-            # Perform raster division for non-zero case
-            result = np.where(data2 == 0, np.nan, data1 / data2_nonzero)
+            # Perform division for all non ZeroDivisionError cases
+            data1_copy = data1.astype("float32")
+            data2_copy = data2.astype("float32")
+            # Where denominator is zero, it fill the output array with zero (0/0 or 5/0 ~ 0)
+            result = np.divide(data1_copy, data2_copy, out=np.zeros_like(data1_copy), where=data2_copy!=0)
             # Write the result to the output raster
             profile = src1.profile
-            profile.update(dtype='float32', count=1)
+            profile.update(dtype="float32", count=1)
             output_fpath = f"{output_dir}/cumulative_mean_prominence.tif"
             # Export the raster to the output directory
-            with rio.open(output_fpath, 'w', **profile) as dst:
+            with rio.open(output_fpath, "w", **profile) as dst:
                 dst.write(result, 1)
         return output_fpath
 
@@ -442,11 +462,13 @@ class CalcVisualImpact:
         fpath = self.calc_mean_prominence(vizprom_fpath, mv_fpath)
         return fpath
     
-    def bind_mean_prominence_to_turbines(self, col_name="mean_prominence"):
+    def perform_visual_prominence_bind(self, fname="wind_turbine_prominence.shp"):
         """Function to bind visual prominence value to turbine location in geodataframe"""
+        output_dir="cumulative_outputs"
         gdf = self.read_windturbine_file()
         prominence_raster = rio.open(self.perform_mean_prominence())
         prominence_data = prominence_raster.read(1)
+        col_name = "mean_prominence"
         gdf[col_name] = None
         # Loop extracts the index position of each wind turbine location
         if gdf.crs.to_epsg() == prominence_raster.crs.to_epsg():
@@ -457,22 +479,17 @@ class CalcVisualImpact:
                 # Mean prominence value at the index is added to the mean prominence column
                 gdf.at[index, col_name] = mean_prominence
         prominence_raster = None
-        return gdf
-    
-    def perform_visual_prominence_bind(self, output_dir="cumulative_outputs", col_name="mean_prominence", fname="wind_turbine_prominence.shp"):
-        """Function to create shapefile with mean visual prominence column"""
-        gdf = self.bind_mean_prominence_to_turbines(col_name)
         gdf[col_name] = gdf[col_name].astype(float)
-        gdf.to_file(os.path.join(output_dir, fname))
-        print(f"Created a visual prominence shapefile at {output_dir}")
-        return (gdf,col_name)
+        fpath = os.path.join(output_dir, fname)
+        gdf.to_file(fpath)
+        print(f"Created a shapefile with mean_prominence column and output saved to {fpath}")
+        return gdf
 
     def visualize_mean_prominence(self, county_state_title):
         """To visualize wind turbine mean prominence"""
         # Read tuple with geodataframe, column name
-        viz_tuple = self.perform_visual_prominence_bind()
-        gdf = viz_tuple[0]
-        col_name = viz_tuple[1]
+        gdf = self.perform_visual_prominence_bind()
+        col_name = "mean_prominence"
         # Marker sizes
         min_marker_size = 5
         max_marker_size = 25
@@ -497,6 +514,48 @@ class CalcVisualImpact:
         plt.ylabel("Latitude")
         plt.savefig("mean_turbine_prominence.png", dpi=300, bbox_inches="tight")
         plt.show()
+
+    def perform_visual_impact(self):
+        """Function to calculate visual impact through adjusted mean visual prominence"""
+        print("Input one option from the following:\n1 - square root(n)\n2 - cube root(n)\n3 - log(n+1)\nWhere n is number of turbines")
+        val = int(input("Please enter a valid value:"))
+        gdf = self.read_windturbine_file()
+        turbine_count = len(gdf)
+        if val == 1:
+            adjustment = (pow(turbine_count, 1/2), "square root(n)")
+        if val == 2:
+            adjustment = (pow(turbine_count, 1/3), "cube root(n)")
+        if val == 3:
+            adjustment = (math.log(turbine_count+1), "log(n+1)")
+        else:
+            raise ValueError("Only 1,2,3 values are allowed")
+        with rio.open("cumulative_outputs/cumulative_mean_prominence.tif") as src:
+            data = src.read(1)
+            data = data.astype("float32")
+            result = data * adjustment[0]
+            # Write the result to the output raster
+            profile = src.profile
+            profile.update(dtype="float32", count=1)
+            # Export the raster to the output directory
+            with rio.open("cumulative_outputs/adjusted_mean_prominence.tif", "w", **profile) as dst:
+                dst.write(result, 1)
+        with rio.open("cumulative_outputs/adjusted_mean_prominence.tif") as dst:
+            raster_data = dst.read(1)
+            # Define the number of classes
+            num_classes = 5
+            # Define the class boundaries
+            class_boundaries = np.linspace(raster_data.min(), raster_data.max(), num_classes + 1)
+            class_map = np.digitize(raster_data, class_boundaries)
+            color_scheme = ListedColormap(['#2b83ba', '#abdda4','#ffffbf','#fdae61', '#d7191c'])
+            cmap = plt.cm.get_cmap(color_scheme, num_classes)
+            plt.imshow(class_map, cmap=cmap)
+            plt.title(f"Visual Impact Map using {adjustment[1]} method with {num_classes} classes")
+            plt.xlabel("Longitude")
+            plt.ylabel("Latitude")
+            plt.colorbar()
+            plt.savefig("visual_impact_map.png", dpi=300, bbox_inches="tight")
+            plt.show()
+            print("Saved visual impact map to the current directory")
 
     def visualize_dem(self, cmap="gist_earth", title="Digital Elevation Model"):
         """Function to visualize DEM"""
@@ -544,7 +603,25 @@ class CalcVisualImpact:
         finally:
             if "viewshed" in locals() and viewshed is not None:
                 viewshed.close()
-        
+
+    def explore_turbine_viewshed(self):
+        """Function to interactively visualize concerned viewshed and wind turbine location"""
+        gdf = self.read_windturbine_file()
+        print("Please choose one viewshed to visualize\n1 - Blade end viewshed\n2 - Turbine hub viewshed\n3 - Rotor sweep viewshed,\n4 - merged viewshed")
+        val = int(input("Input an option from above:"))
+        turbine_index = int(input(f"Input a turbine index between (1,{len(gdf)}):"))
+        if val == 1:
+            viewshed_fpath = f"viewsheds_blade_end/viewshed_{turbine_index}_blade_rc.tif"
+        if val == 2:
+            viewshed_fpath = f"viewsheds_hub/viewshed_{turbine_index}_hub_rc.tif"
+        if val == 3:
+            viewshed_fpath = f"viewsheds_rotor_sweep/viewshed_{turbine_index}_sweep_rc.tif"
+        if val == 4:
+            viewshed_fpath = f"viewsheds_merged/merged_{turbine_index}_viewshed.tif"
+        else:
+            raise ValueError("Not a valid input. Please use a number from [1,2,3,4]")
+        self.visualize_viewshed_windturbine(viewshed_fpath, turbine_index)
+
     def visualize_wind_turbines(self, title="Wind Turbine locations"):
         """Function to visualize wind turbine from geodataframe"""
         gdf = self.read_windturbine_file()
@@ -557,15 +634,18 @@ class CalcVisualImpact:
     def run_via_pipeline(self, county_state_title):
         """Function to run complete VIA GIS pipeline"""
         try:
-            print("VIA GIS Pipeline is executing and it takes quite a while....")
+            print("VIA GIS Pipeline is getting started....")
             file_size = os.path.getsize(self.dem_fpath)
             fs = round(file_size*0.000001, 2)
             print(f"Raster file size in MegaBytes (MB) is around {fs}")
-            print("Approximate compute time to run pipeline: 1-2 hrs (might vary across computers)")
+            print("Approximate compute time to run pipeline: 1-2 hrs (might vary)")
+            print("........................................................\n")
             if fs>=1000:
                 raise MemoryError("Please limit the file size to less than 1 GigaByte (GB)")
             self.create_relative_turbine_viewsheds()
+            print("........................................................\n")
             self.reclass_relative_turbine_viewsheds()
+            print("........................................................\n")
             self.perform_viewsheds_merge()
             self.create_turbine_multiringbuffer_raster()
             self.perform_viz_prominence()
