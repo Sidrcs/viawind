@@ -95,13 +95,15 @@ class CalcVisualImpact:
         try:
             if not os.path.exists(self.dem_fpath):
                 raise FileNotFoundError(f"Raster file not found: {self.dem_fpath}")
+            if not os.path.exists("datasets"):
+                os.mkdir("datasets")
             dem = rxr.open_rasterio(f"{self.dem_fpath}")
             # Reprojects raster to EPSG:3857
             dem_reproj = dem.rio.reproject(3857)
-            reproj_fpath = self.dem_fpath.replace(".tif", "_reproj.tif")
+            reproj_fpath = "datasets/dem_reproj.tif"
             # Output raster to reproj_fpath
             dem_reproj.rio.to_raster(reproj_fpath)
-            deflate_fpath = self.dem_fpath.replace(".tif", "_deflate.tif")
+            deflate_fpath = "datasets/dem_deflate.tif"
             # Run GDAL deflate for viewshed creation and execute the command
             command = f"gdal_translate -co COMPRESS=DEFLATE {reproj_fpath} {deflate_fpath}"
             os.system(command)
@@ -639,18 +641,20 @@ class CalcVisualImpact:
             fs = round(file_size*0.000001, 2)
             print(f"Raster file size in MegaBytes (MB) is around {fs}")
             print("Approximate compute time to run pipeline: 1-2 hrs (might vary)")
-            print("........................................................\n")
+            print("........................................................")
             if fs>=1000:
                 raise MemoryError("Please limit the file size to less than 1 GigaByte (GB)")
             self.create_relative_turbine_viewsheds()
-            print("........................................................\n")
+            print("........................................................")
             self.reclass_relative_turbine_viewsheds()
-            print("........................................................\n")
+            print("........................................................")
             self.perform_viewsheds_merge()
             self.create_turbine_multiringbuffer_raster()
+            print("........................................................")
             self.perform_viz_prominence()
             self.reclass_viz_prominence_rasters()
             self.reclass_meaningful_visibility_rasters()
+            print("........................................................")
             self.visualize_mean_prominence(county_state_title)
         except OSError as e:
             print(f"{str(e)}")
