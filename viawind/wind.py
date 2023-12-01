@@ -150,6 +150,9 @@ class CalcVisualImpact:
 
     def create_relative_turbine_viewsheds(self):
         """Function to compute viewsheds for Turbine Blade End, Hub, Rotor Sweep """
+        # Remove the directors Rasterio IOErrors in future
+        for output_dir in ["viewsheds_blade_end", "viewsheds_hub", "viewsheds_rotor_sweep"]:
+            self.check_dir(output_dir)
         gdf = self.read_windturbine_file()
         # Preferred file format: US Wind Turbine Database
         blade_end_height = gdf["t_ttlh"][0]
@@ -211,9 +214,9 @@ class CalcVisualImpact:
         output_dir = "viewsheds_merged"
         self.check_dir(output_dir)
         # Creates a list of raster file paths from relative viewshed file directories
-        viewsheds_blade_end = [file for file in os.listdir('viewsheds_blade_end') if "rc" in file]
-        viewsheds_hub = [file for file in os.listdir('viewsheds_hub') if "rc" in file]
-        viewsheds_rotor_sweep = [file for file in os.listdir('viewsheds_rotor_sweep') if "rc" in file]
+        viewsheds_blade_end = [file for file in os.listdir("viewsheds_blade_end") if file.endswith("blade_rc.tif")]
+        viewsheds_hub = [file for file in os.listdir("viewsheds_hub") if file.endswith("hub_rc.tif")]
+        viewsheds_rotor_sweep = [file for file in os.listdir("viewsheds_rotor_sweep") if file.endswith("sweep_rc.tif")]
         # Creates a sorted list of aforementioned raster file paths
         sorted_blade_end = sorted(viewsheds_blade_end, key=lambda x: int(x.split('_')[1]))
         sorted_hub = sorted(viewsheds_hub, key=lambda x: int(x.split('_')[1]))
@@ -315,11 +318,10 @@ class CalcVisualImpact:
     def perform_viz_prominence(self):
         """Function to create visual prominence rasters for each turbine location"""
         output_dir="visual_exposure"
-        if not os.path.exists(output_dir):
-            os.mkdir(output_dir)
+        self.check_dir(output_dir)
         # Creates a list of file paths for merged viewshed and raster buffers directories
-        merged_viewsheds = [file for file in os.listdir("viewsheds_merged") if file.endswith(".tif")]
-        distance_zone_rasters = [file for file in os.listdir("raster_buffers") if file.endswith(".tif")]
+        merged_viewsheds = [file for file in os.listdir("viewsheds_merged") if file.endswith("viewshed.tif")]
+        distance_zone_rasters = [file for file in os.listdir("raster_buffers") if file.endswith("turbine_buffer.tif")]
         # Sorted list of aforementioned folders to help run the loop as per index value
         sorted_merged_viewsheds = sorted(merged_viewsheds, key=lambda x: int(x.split('_')[1]))
         sorted_distance_zone_rasters = sorted(distance_zone_rasters, key=lambda x: int(x.split('_')[1]))
@@ -416,7 +418,7 @@ class CalcVisualImpact:
         self.check_dir(output_dir)
         input_dir="visual_exposure"
         # Creates a list of all files that contains "rc" string in the input directory
-        input_paths = [os.path.join(input_dir, file) for file in os.listdir(input_dir) if "rc" in file and file.endswith(".tif")]
+        input_paths = [os.path.join(input_dir, file) for file in os.listdir(input_dir) if file.endswith("vizexp_rc.tif")]
         output_path = f"{output_dir}/cumulative_visual_exposure.tif"
         # Function sums all the rastes in the input_paths
         self.create_cumulative_rasters(input_paths, output_path)
@@ -427,7 +429,7 @@ class CalcVisualImpact:
         output_dir="cumulative_outputs"
         input_dir="visual_exposure"
         # Creates a list of all files that contains "mv" string in the input directory
-        input_paths = [os.path.join(input_dir, file) for file in os.listdir(input_dir) if "mv" in file and file.endswith(".tif")]
+        input_paths = [os.path.join(input_dir, file) for file in os.listdir(input_dir) if file.endswith("mv_rc.tif")]
         # Create the output directory if it doesn't exist
         if not os.path.exists(output_dir):
             os.mkdir(output_dir)
@@ -523,14 +525,12 @@ class CalcVisualImpact:
         val = int(input("Please enter a valid value:"))
         gdf = self.read_windturbine_file()
         turbine_count = len(gdf)
-        if val == 1:
+        if val==1:
             adjustment = (pow(turbine_count, 1/2), "square root(n)")
-        if val == 2:
+        if val==2:
             adjustment = (pow(turbine_count, 1/3), "cube root(n)")
-        if val == 3:
+        if val==3:
             adjustment = (math.log(turbine_count+1), "log(n+1)")
-        else:
-            raise ValueError("Only 1,2,3 values are allowed")
         with rio.open("cumulative_outputs/cumulative_mean_prominence.tif") as src:
             data = src.read(1)
             data = data.astype("float32")
@@ -589,7 +589,7 @@ class CalcVisualImpact:
             image_hidden = ax.imshow(viewshed.read()[0], cmap=cmap)
             fig.colorbar(image_hidden, ax=ax, cmap=cmap)
             i = int(turbine_index)
-            gdf.iloc[i:i+1].plot(ax=ax, marker="1", color="#31a354", markersize=1000)
+            gdf.iloc[i-1:i].plot(ax=ax, marker="1", color="#31a354", markersize=1000)
             show(viewshed, ax=ax, cmap=cmap)
             ax.set_title(f"{title}  (EPSG:{viewshed.crs.to_epsg()})")
             plt.xlabel(f'Longitude ({viewshed.crs.units_factor[0]})')
@@ -620,8 +620,6 @@ class CalcVisualImpact:
             viewshed_fpath = f"viewsheds_rotor_sweep/viewshed_{turbine_index}_sweep_rc.tif"
         if val == 4:
             viewshed_fpath = f"viewsheds_merged/merged_{turbine_index}_viewshed.tif"
-        else:
-            raise ValueError("Not a valid input. Please use a number from [1,2,3,4]")
         self.visualize_viewshed_windturbine(viewshed_fpath, turbine_index)
 
     def visualize_wind_turbines(self, title="Wind Turbine locations"):
