@@ -42,6 +42,8 @@ class CalcVisualImpact:
             self.windturbine_fpath = windturbine_fpath
             self.dem_fpath = dem_fpath
             self.dir_path = dir_path
+        except FileNotFoundError as e:
+            print(f"{str(e)}")
         except IOError as e:
             print(f"{str(e)}")
         finally:

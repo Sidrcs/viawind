@@ -2,8 +2,9 @@ name: viawind
 channels:
   - conda-forge
   - defaults
-
 dependencies:
+  - python=3.9
+  - ipython
   - gdal
   - geopandas==0.14.1
   - matplotlib==3.8.2
@@ -13,3 +14,4 @@ dependencies:
   - rioxarray==0.15.0
   - setuptools==68.2.2
   - Shapely==2.0.2
+  - pip
