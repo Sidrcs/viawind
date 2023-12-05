@@ -29,13 +29,19 @@ from rasterio import features
 
 
 class CalcVisualImpact:
-    """Perform via using wind turbine locations and Digital Elevation Model (DEM)"""
+    """Class to Perform via using wind turbine locations and Digital Elevation Model (DEM)"""
     def __init__(self, windturbine_fpath, dem_fpath, dir_path):
         """
-        Keywords arguments:
-        Windturbine_fpath (str) -> Complete Wind Turbine CSV/SHP file path
-        dem_fpath (str) -> Complete raster file path
-        dir_path (str) -> Directory where outputs file are to be created
+        Constructs all the necessary attributes for the CalcVisualImpact object
+
+        Parameters
+        ----------
+        Windturbine_fpath: str
+            Complete Wind Turbine file path [.csv/.shp]
+        dem_fpath: str
+            raster file path [DEM/DSM]
+        dir_path:str
+          Directory path to store outputs
         """
         try:
             # Required datasets to create an instance
@@ -55,7 +61,13 @@ class CalcVisualImpact:
 
 
     def read_windturbine_file(self):
-        """Function to read US Wind Turbine dataset: Shapefile/CSV format"""
+        """
+        Function to read US Wind Turbine dataset
+
+        Returns
+        ----------
+        Reprojected GeoDataFrame object
+        """
         try:
             # Reads shapefile and reprojects it to EPSG:3857
             if self.windturbine_fpath.endswith(".shp"):
@@ -66,7 +78,7 @@ class CalcVisualImpact:
             if self.windturbine_fpath.endswith(".csv"):
                 df = pd.read_csv(f"{self.windturbine_fpath}")
                 # Extract column names as list from dataframe
-                col_list = list(gdf.columns.values)
+                col_list = list(df.columns.values)
                 # Remove pre-existing geometry column
                 if "geometry" in col_list:
                     df = df.drop(labels=["geometry"], axis=1)
@@ -88,11 +100,18 @@ class CalcVisualImpact:
                 return gdf
         except FileNotFoundError:
             print(f"Wind Turbine file not found: {self.windturbine_fpath}")
+        except IOError as e:
+            print(f"{str(e)}")
         except ValueError as e:
             print(f"{str(e)}. Populate data as in US Wind Turbine database format")
     
     def read_dem(self):
-        """Function to read, reproject and returns reprojected raster file path"""
+        """
+        Function to read, reproject and deflate input DEM/DSM raster
+
+        Returns
+        ----------
+        Reprojected raster file path"""
         # Check if the input raster file exists
         try:
             if not os.path.exists(self.dem_fpath):
@@ -117,7 +136,15 @@ class CalcVisualImpact:
                 dem_reproj = None
 
     def check_dir(self, output_dir):
-        """Function to remove an existing directory and create a fresh directory on re-runs"""
+        """
+        Function to remove an existing directory and create a fresh directory on re-runs
+
+        Parameters
+        ----------
+        output_dir: str
+            Directory file path
+        
+        """
         try:
             # Removes a non-empty folder
             if os.path.exists(output_dir):
