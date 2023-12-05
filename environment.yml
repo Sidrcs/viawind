@@ -4,14 +4,6 @@ channels:
   - defaults
 dependencies:
   - python=3.9
-  - gdal
-  - pip
-  - -r requirements.txtname: viawind
-channels:
-  - conda-forge
-  - defaults
-dependencies:
-  - python=3.9
   - ipython
   - jupyter
   - gdal
