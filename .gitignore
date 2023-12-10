@@ -17,3 +17,5 @@ viewsheds_hub/viewshed_1_hub.tif.ovr
 *.xml
 *.ovr
 *.lock
+.ipynb_checkpoints
+.gitattributes
