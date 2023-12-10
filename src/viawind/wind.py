@@ -28,6 +28,7 @@ from rasterio import features
 
 
 class CalcVisualImpact:
+<<<<<<< Updated upstream:src/viawind/wind.py
     """Perform via using wind turbine locations and Digital Elevation Model (DEM)"""
     def __init__(self, windturbine_fpath, dem_fpath):
         # Required datasets to create an instance
@@ -36,10 +37,56 @@ class CalcVisualImpact:
 
     def read_windturbine_file(self):
         """Function to read US Wind Turbine dataset"""
+=======
+    """Class to Perform via using wind turbine locations and Digital Elevation or Surface Model (DEM/DSM)"""
+    def __init__(self, windturbine_fpath, dem_fpath, dir_path):
+        """Constructs all the necessary attributes for the CalcVisualImpact object
+
+        Parameters
+        ----------
+        Windturbine_fpath: str
+            Complete Wind Turbine file path [.csv/.shp]
+        dem_fpath: str
+            raster file path [DEM/DSM]
+        dir_path:str
+          Directory path to store outputs
+        """
+        try:
+            # Required datasets to create an instance
+            self.windturbine_fpath = windturbine_fpath
+            self.dem_fpath = dem_fpath
+            self.dir_path = dir_path
+        except FileNotFoundError as e:
+            print(f"{str(e)}")
+        except IOError as e:
+            print(f"{str(e)}")
+        finally:
+            os.chdir(dir_path)
+            print("- Suggested to wind turbine data as in US Wind Turbine database: https://eerscmap.usgs.gov/uswtdb/data/")
+            print("- Suggested to use a Digital Surface Model (DSM) instead of a Digital Elevation Model (DEM) for better results")
+            print("- Try to use 1-arc second or 1/3-arc second DEM from https://apps.nationalmap.gov/downloader/")
+            warnings.simplefilter(action="ignore", category=UserWarning)
+
+
+    def read_windturbine_file(self):
+        """Function to read and reproject wind turbine dataset
+
+        Returns
+        ----------
+        Reprojected GeoDataFrame object
+        """
+>>>>>>> Stashed changes:viawind/wind.py
         try:
             # Reads shapefile and reprojects it to EPSG:3857
             if self.windturbine_fpath.endswith(".shp"):
                 gdf = gpd.read_file(f"{self.windturbine_fpath}")
+                # Extract column names as list from geodataframe
+                col_list = list(gdf.columns.values)
+                # Checks if the geodataframe has following columns and raises an attribute error
+                if not all(column in col_list for column in ["t_ttlh","t_hh","t_rsa"]):
+                    raise AttributeError("t_ttlh: Turbine total height from ground to tip of a blade at its apex in meters (m)\nt_hh: Turbine hub height in meters (m)\nt_rsa: Turbine rotor sweep area in square meters (m2) columns are mandatory for analysis. Refer - https://eerscmap.usgs.gov/uswtdb/api-doc/#keyValue")
+                if gdf.crs is None:
+                    gdf = gdf.set_crs(4326)
                 gdf = gdf.to_crs(3857)
                 return gdf
             # Reads CSV and reprojects it to EPSG:3857
@@ -50,9 +97,17 @@ class CalcVisualImpact:
                 # Remove pre-existing geometry column
                 if "geometry" in col_list:
                     df = df.drop(labels=["geometry"], axis=1)
+<<<<<<< Updated upstream:src/viawind/wind.py
                 if "xlong" and "ylat" not in col_list:
                     raise ValueError("Latitude, Longitude columns has to be renamed as xlong, ylat")
                 if df["xlong"] not in range(-180,181):
+=======
+                if not all(column in col_list for column in ["xlong", "ylat"]):
+                    raise ValueError("Latitude, Longitude columns has to be renamed as xlong, ylat")
+                if not all(column in col_list for column in ["t_ttlh","t_hh","t_rsa"]):
+                    raise AttributeError("t_ttlh: Turbine total height from ground to tip of a blade at its apex in meters (m)\nt_hh: Turbine hub height in meters (m)\nt_rsa: Turbine rotor sweep area in square meters (m2) columns are mandatory for analysis. Refer - https://eerscmap.usgs.gov/uswtdb/api-doc/#keyValue")
+                if not (-180 <= df["xlong"][0] <= 180) or not (-90 <= df["ylat"][0] <= 90):
+>>>>>>> Stashed changes:viawind/wind.py
                     raise ValueError("Lon/Lat CRS is not EPSG:4326. Please use EPSG:4326 only")
                 # Populate geometry column with lat, lon data from US Wind Turbine database
                 gdf = gpd.GeoDataFrame(data=df, geometry=gpd.points_from_xy(df['xlong'], df['ylat']))
@@ -61,13 +116,27 @@ class CalcVisualImpact:
                 # Reproject to EPSG:3857
                 gdf = gdf.to_crs(3857)
                 return gdf
+<<<<<<< Updated upstream:src/viawind/wind.py
+=======
+            return None
+        except FileNotFoundError:
+            print(f"Wind Turbine file not found: {self.windturbine_fpath}")
+>>>>>>> Stashed changes:viawind/wind.py
         except IOError as e:
             print(f"File does not exist in the path and {str(e)}")
         except ValueError as e:
-            print(f"{str(e)}. Populate data as in US Wind Turbine database format")
+            print(f"{str(e)}")
     
     def read_dem(self):
+<<<<<<< Updated upstream:src/viawind/wind.py
         """Function to read, reproject and returns reprojected raster file path"""
+=======
+        """Function to read, reproject and deflate input DEM/DSM raster
+
+        Returns
+        ----------
+        Reprojected raster file path"""
+>>>>>>> Stashed changes:viawind/wind.py
         # Check if the input raster file exists
         try:
             if not os.path.exists(self.dem_fpath):
@@ -84,9 +153,40 @@ class CalcVisualImpact:
                 dem = None
             if "dem_reproj" in locals() and dem_reproj is not None:
                 dem_reproj = None
+<<<<<<< Updated upstream:src/viawind/wind.py
+=======
+
+    def check_dir(self, output_dir):
+        """Function to remove an existing directory and create a fresh directory on re-runs
+
+        Parameters
+        ----------
+        output_dir: str
+            Directory file path
+        """
+        try:
+            # Removes a non-empty folder
+            if os.path.exists(output_dir):
+                shutil.rmtree(output_dir)
+            # Create the output directory if it doesn't exist
+            if not os.path.exists(output_dir):
+                os.mkdir(output_dir)
+        except OSError as e:
+            print(f"{str(e)}")
+>>>>>>> Stashed changes:viawind/wind.py
     
     def create_relative_viewshed(self, output_dir, height, height_name):
-        """Function to create relative viewsheds based on wind turbine height"""
+        """Function to create relative viewsheds based on wind turbine height
+
+        Parameters
+        ----------
+        output_dir: str
+            Directory file path to store relative viewsheds output
+        height: float
+            Observer height to construct relative viewshed using gdal
+        height_name:str
+            Name of turbine height to create a uniform and sequential file names
+        """
         gdf = self.read_windturbine_file()
         input_dem = self.read_dem()
         # Create the output directory if it doesn't exist
@@ -110,18 +210,35 @@ class CalcVisualImpact:
     def create_relative_turbine_viewsheds(self, blade_end="t_ttlh", hub="t_hh", rsa="t_rsa"):
         """Function to compute viewsheds for Turbine Blade End, Hub, Rotor Sweep """
         gdf = self.read_windturbine_file()
+<<<<<<< Updated upstream:src/viawind/wind.py
         # Preferred file format from US Wind Turbine Database
         blade_end_height = gdf[blade_end][0]
         hub_height = gdf[hub][0]
         rsa = gdf[rsa][0]
+=======
+        # Extracts blade end turbine height from GeoDataFrame
+        blade_end_height = gdf["t_ttlh"][0]
+        # Extracts turbine hub height from GeoDataFrame
+        hub_height = gdf["t_hh"][0]
+        # Extracts rotor sweep area from GeoDataFrame
+        rsa = gdf["t_rsa"][0]
+>>>>>>> Stashed changes:viawind/wind.py
         rotor_sweep_height = math.sqrt(float(rsa)/math.pi)
-        # Creates relative viewsheds in the following directories
+        # Creates relative viewshed rasters
         self.create_relative_viewshed("viewsheds_blade_end", blade_end_height, "blade")
         self.create_relative_viewshed("viewsheds_hub", hub_height, "hub")
         self.create_relative_viewshed("viewsheds_rotor_sweep", rotor_sweep_height, "sweep")
     
     def reclass_relative_viewsheds(self, viewshed_folder_path, new_value, original_value=255):
-        """Function to reclassify relative viewshed as per Palmer 2022"""
+        """Function to reclassify relative viewshed (Palmer 2022)
+        Blade End [255:10], Hub [255:20], Rotor sweep [255:30]
+        ...
+        Parameters
+        ----------
+        viewshed_folder_path: str
+        new_value: int 
+        original_value: int
+        """
         for file in os.listdir(viewshed_folder_path):
             input_raster = os.path.join(viewshed_folder_path, file)
             # Open the input raster
@@ -144,13 +261,19 @@ class CalcVisualImpact:
         return None
     
     def reclass_relative_turbine_viewsheds(self):
-        """Function to reclassify relative viewsheds - Blade End, Turbine, Rotor Sweep as per Palmer 2022"""
+        """Function to reclassify relative viewsheds - Blade End, Turbine, Rotor Sweep (Palmer 2022)"""
         self.reclass_relative_viewsheds("viewsheds_blade_end", new_value=10)
         self.reclass_relative_viewsheds("viewsheds_hub", new_value=20)
         self.reclass_relative_viewsheds("viewsheds_rotor_sweep",new_value=30)
     
     def merge_viewshed_rasters(self, input_file_paths, output_folder_path):
-        """Function to merge reclassified viewshed rasters"""
+        """Function to merge reclassified viewshed rasters
+
+        Parameters
+        ----------
+        input_file_paths: str
+        output_folder_path: str
+        """
         # Open each input raster into list
         src_files_to_mosaic = [rio.open(file) for file in input_file_paths]
         # Merge rasters to hold maximum value in each pixel
@@ -189,7 +312,11 @@ class CalcVisualImpact:
         print(f"Performed raster merge for {len(self.read_windturbine_file)*3} rasters and save to {fpath} ")
         
     def create_multiring_buffer(self, center_point, radii):
-        """Function to create non-intersecting concentric buffers as MultiPolygon"""
+        """Function to create non-intersecting concentric buffers as MultiPolygon
+
+        Parameters
+        ----------
+        """
         buffers = [center_point.buffer(r) for r in radii]
         buffer0 = buffers[0]
         # Extracts the non-intersecting parts of buffers
@@ -277,8 +404,14 @@ class CalcVisualImpact:
             output_path = f"{output_dir}/merged_{i+1}_vizexp.tif"
             self.create_turbine_viz_prominence(input_paths, output_path) 
 
+<<<<<<< Updated upstream:src/viawind/wind.py
     def reclass_viz_prominence_rasters(self, output_dir="visual_exposure"):
         """Function reclassify visual pro rasters as per table 3 (Palmer 2022)"""
+=======
+    def reclass_viz_prominence_rasters(self):
+        """Function reclassify visual prominence rasters as per table 3 (Palmer 2022)"""
+        output_dir="visual_exposure"
+>>>>>>> Stashed changes:viawind/wind.py
         for file in os.listdir(output_dir):
             input_raster = os.path.join(output_dir, file)
             # Opens each input raster
@@ -338,7 +471,13 @@ class CalcVisualImpact:
         print(f"Reclassification complete for meaningful visibility and output saved to {output_dir}")
 
     def create_cumulative_rasters(self, input_paths, output_path):
-        """Function to perform raster sum of input rasters"""
+        """Function to perform raster sum of input rasters
+
+         Parameters
+        ----------
+        input_paths: str
+        output_path: str
+        """
         # Initialize raster_sum
         raster_sum = None
         # Open each raster file and accumulate values
@@ -376,8 +515,20 @@ class CalcVisualImpact:
         self.create_cumulative_rasters(input_paths, output_path)
         return output_path
     
+<<<<<<< Updated upstream:src/viawind/wind.py
     def calc_mean_prominence(self, vizprom_fpath, mv_fpath, output_dir="cumulative_outputs"):
         """Function to divide visual prominence and meaningful visibility"""
+=======
+    def calc_mean_prominence(self, vizprom_fpath, mv_fpath):
+        """Function to divide visual prominence and meaningful visibility
+
+         Parameters
+        ----------
+        vizprom_fpath:str
+        mv_fpath: str
+        """
+        output_dir="cumulative_outputs"
+>>>>>>> Stashed changes:viawind/wind.py
         with rio.open(vizprom_fpath) as src1, rio.open(mv_fpath) as src2:
             # Read the raster datasets
             data1 = src1.read(1)
@@ -403,6 +554,7 @@ class CalcVisualImpact:
         fpath = self.calc_mean_prominence(vizprom_fpath, mv_fpath)
         return fpath
     
+<<<<<<< Updated upstream:src/viawind/wind.py
     def bind_mean_prominence_to_turbines(self, col_name="mean_prominence"):
         """Function to bind visual prominence value to turbine location in geodataframe"""
         gdf = self.read_windturbine_file()
@@ -427,9 +579,51 @@ class CalcVisualImpact:
         gdf.to_file(os.path.join(output_dir, fname))
         print(f"Created a visual prominence shapefile at {output_dir}")
         return (gdf,col_name)
+=======
+    def perform_visual_prominence_bind(self, fname="wind_turbine_prominence.shp"):
+        """Function to bind visual prominence value to turbine location in geodataframe
+
+        Parameters
+        ----------
+        fname: str
+            Name of wind turbine shapefile to be saved (along with .shp extension)
+        Returns
+        ----------
+        GeoDataFrame with mean_prominence column
+        """
+        if fname.endswith(".shp"):
+            output_dir="cumulative_outputs"
+            gdf = self.read_windturbine_file()
+            prominence_raster = rio.open(self.perform_mean_prominence())
+            prominence_data = prominence_raster.read(1)
+            col_name = "mean_prominence"
+            gdf[col_name] = None
+            # Loop extracts the index position of each wind turbine location
+            if gdf.crs.to_epsg() == prominence_raster.crs.to_epsg():
+                for index, row in gdf.iterrows():
+                    lon, lat = row['geometry'].x, row['geometry'].y
+                    row, col = prominence_raster.index(lon,lat)
+                    mean_prominence = prominence_data[row,col]
+                    # Mean prominence value at the index is added to the mean prominence column
+                    gdf.at[index, col_name] = mean_prominence
+            prominence_raster = None
+            gdf[col_name] = gdf[col_name].astype(float)
+            fpath = os.path.join(output_dir, fname)
+            gdf.to_file(fpath)
+            print(f"Created a shapefile with mean_prominence column and output saved to {fpath}")
+            return gdf
+        if not fname.endswith(".shp"):
+            raise ValueError("Provide file name with .shp extension only")
+>>>>>>> Stashed changes:viawind/wind.py
 
     def visualize_mean_prominence(self, county_state_title):
-        """To visualize wind turbine mean prominence"""
+        """To visualize wind turbine mean prominence
+
+        Parameters
+        ----------
+        county_state_title: str
+            Title for mean visual prominence raster bubble plot (Project name, County, State)
+        """
         # Read tuple with geodataframe, column name
         viz_tuple = self.perform_visual_prominence_bind()
         gdf = viz_tuple[0]
@@ -460,7 +654,13 @@ class CalcVisualImpact:
         plt.show()
 
     def visualize_dem(self, cmap="gist_earth", title="Digital Elevation Model"):
-        """Function to visualize DEM"""
+        """Function to visualize DEM
+
+        Parameters
+        ----------
+        cmap: str
+        title: str
+        """
         try:
             dst = rio.open(self.read_dem())
             fig, ax = plt.subplots(figsize=(10,5))
@@ -506,6 +706,7 @@ class CalcVisualImpact:
             if "viewshed" in locals() and viewshed is not None:
                 viewshed.close()
 
+<<<<<<< Updated upstream:src/viawind/wind.py
     def run_via_pipeline(self, county_state_title):
         """Function to run complete VIA GIS pipeline"""
         self.create_relative_turbine_viewsheds()
@@ -518,6 +719,65 @@ class CalcVisualImpact:
         vizprom_fpath = self.perform_cumulative_viz_prominence()
         mv_fpath = self.perform_cumulative_meaningful_viz()
         self.visualize_mean_prominence(county_state_title)
+=======
+    def explore_turbine_viewshed(self):
+        """Function to interactively visualize concerned viewshed and wind turbine location"""
+        gdf = self.read_windturbine_file()
+        print("Please choose one viewshed to visualize\n1 - Blade end viewshed\n2 - Turbine hub viewshed\n3 - Rotor sweep viewshed,\n4 - merged viewshed")
+        val = int(input("Input an option from above:"))
+        turbine_index = int(input(f"Input a turbine index between (1,{len(gdf)}):"))
+        if val == 1:
+            viewshed_fpath = f"viewsheds_blade_end/viewshed_{turbine_index}_blade_rc.tif"
+        if val == 2:
+            viewshed_fpath = f"viewsheds_hub/viewshed_{turbine_index}_hub_rc.tif"
+        if val == 3:
+            viewshed_fpath = f"viewsheds_rotor_sweep/viewshed_{turbine_index}_sweep_rc.tif"
+        if val == 4:
+            viewshed_fpath = f"viewsheds_merged/merged_{turbine_index}_viewshed.tif"
+        self.visualize_viewshed_windturbine(viewshed_fpath, turbine_index)
+
+    def visualize_wind_turbines(self, title="Wind Turbine locations"):
+        """Function to visualize wind turbine from geodataframe"""
+        gdf = self.read_windturbine_file()
+        gdf.plot(marker="1", color="#31a354", markersize=500)
+        plt.title(title)
+        plt.xlabel("Longitude (meter)")
+        plt.ylabel("Latitude (meter)")
+        plt.savefig("wind_turbines.png", dpi=300, bbox_inches="tight")
+        plt.show()
+
+    def run_via_pipeline(self, county_state_title):
+        """Function to run mean visual prominence geospatial pipeline pipeline
+
+        Parameters
+        ----------
+        county_state_title: str
+            Title for mean visual prominence raster bubble plot (Project name, County, State)
+        """
+        try:
+            print("VIA GIS Pipeline is getting started....")
+            file_size = os.path.getsize(self.dem_fpath)
+            fs = round(file_size*0.000001, 2)
+            print(f"Raster file size in MegaBytes (MB) is around {fs}")
+            print("Approximate compute time to run pipeline: 1-2 hrs (might vary)")
+            print("........................................................")
+            if fs>=1000:
+                raise MemoryError("Please limit the file size to less than 1 GigaByte (GB)")
+            self.create_relative_turbine_viewsheds()
+            print("........................................................")
+            self.reclass_relative_turbine_viewsheds()
+            print("........................................................")
+            self.perform_viewsheds_merge()
+            self.create_turbine_multiringbuffer_raster()
+            print("........................................................")
+            self.perform_viz_prominence()
+            self.reclass_viz_prominence_rasters()
+            self.reclass_meaningful_visibility_rasters()
+            print("........................................................")
+            self.visualize_mean_prominence(county_state_title)
+        except OSError as e:
+            print(f"{str(e)}")
+>>>>>>> Stashed changes:viawind/wind.py
 
 
 
