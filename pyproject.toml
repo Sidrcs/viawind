@@ -31,5 +31,5 @@ dependencies = [
 packages = ["viawind"]
 
 [project.urls]
-"Homepage" = "https://github.com/Sidrcs/Visual_Impact_Assessment"
-"Bug Tracker" = "https://github.com/Sidrcs/Visual_Impact_Assessment/issues" 
+"Homepage" = "https://github.com/Sidrcs/viawind"
+"Bug Tracker" = "https://github.com/Sidrcs/viawind/issues" 
