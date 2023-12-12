@@ -1,8 +1,33 @@
-## Open-source Python Package development for Visual Impact Assessment (VIA) of Onshore Wind Turbines
-Chinna Subbaraya Siddharth Ramavajjala<sup>1</sup>
-Department of Geography, University of Wisconsin - Madison
-Madison, Wisconsin, United States of America 
+# viawind
+**viawind** is an open-source Python Package for Visual Impact Assessment (VIA) of Onshore Wind Turbines.
+
+## Demo
+[VIA Demo Notebook](https://github.com/Sidrcs/viawind/blob/main/VIA_Demo.ipynb)
+
+## How to Install and Use
+### Installation
+Step 1: Clone the repository
+```
+git clone https://github.com/Sidrcs/viawind.git
+```
+Step 2: Change the directory to viawind folder
+```
+cd <directory_path>
+```
+Step 3: Install environment.yml to install dependencies using Conda
+```
+conda env create -f environment.yml
+```
+Step 4: Activate the Conda environment
+```
+conda activate viawind
+```
+Step 5: Launch Jupyter Notebook from the terminal (Mac) or Anaconda prompt (Windows)
+```
+jupyter-notebook
+```
 
 ### Adopted GIS Workflow (Palmer 2022)
-<img src="https://github.com/Sidrcs/Visual_Impact_Assessment/blob/main/Graphics/GIS_Workflow.png?raw=true">
+![image](https://github.com/Sidrcs/viawind/assets/91824047/6033897b-e933-4a29-a087-f989a96d9926)
+
  
