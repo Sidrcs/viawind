@@ -6,10 +6,10 @@
 
 ## How to Install and Use
 ### Installation
-Step 1: Clone the repository
-Step 2: Change the directory to viawind folder
-Step 3: Install environment.yml to install dependencies using Conda
-Step 4: Activate the Conda environment
+Step 1: Clone the repository <br>
+Step 2: Change the directory to viawind folder <br>
+Step 3: Install environment.yml to install dependencies using Conda <br>
+Step 4: Activate the Conda environment <br>
 Step 5: Launch Jupyter Notebook from the terminal (Mac) or Anaconda prompt (Windows)
 ```
 git clone https://github.com/Sidrcs/viawind.git
