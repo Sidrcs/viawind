@@ -34,8 +34,6 @@ def create_relative_viewshed(gdf, input_dem, output_dir, height, height_name):
         # Run gdal_viewshed for each point
         command = f"gdal_viewshed -oz {height} -ox {x} -oy {y} {input_dem} {output_filename}"
         os.system(command)
-    fpath = os.path.join(os.getcwd(), output_dir)
-    print(f'{height_name} viewsheds created for {len(gdf)} points and outputs saved to {fpath}')
 
 if __name__ == "__main__":
     os.chdir("F:\demo_folder")
@@ -52,11 +50,13 @@ if __name__ == "__main__":
     p1.start() 
     p1.join() 
     end = time.time()
-    print(f"Process is completed in {(end-start)/60} minutes")
+    print(f"Process is completed in {end-start} seconds")
+    # OUTPUT: Process is completed in 160.643385887146 seconds
     
     output_dir = "test_viewsheds_blade_end"
     start = time.time()
     create_relative_viewshed(gdf, input_dem, output_dir, height, height_name)
     end = time.time()
-    print(f"Process is completed in {(end-start)/60} minutes")
+    print(f"Process is completed in {end-start} seconds")
+    # OUTPUT: Process is completed in 172.21256256103516 seconds
     
