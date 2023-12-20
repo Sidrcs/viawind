@@ -136,14 +136,12 @@ class CalcVisualImpact:
                 dem_reproj = None
 
     def check_dir(self, output_dir):
-        """
-        Function to remove an existing directory and create a fresh directory on re-runs
+        """Function to remove an existing directory and create a fresh directory on re-runs
 
         Parameters
         ----------
         output_dir: str
             Directory file path
-        
         """
         try:
             # Removes a non-empty folder
@@ -178,7 +176,7 @@ class CalcVisualImpact:
         gdf = None
 
     def create_relative_turbine_viewsheds(self):
-        """Function to compute viewsheds for Turbine Blade End, Hub, Rotor Sweep """
+        """Function to compute viewsheds for Turbine Blade End, Hub, Rotor Sweep"""
         # Remove the directors Rasterio IOErrors in future
         for output_dir in ["viewsheds_blade_end", "viewsheds_hub", "viewsheds_rotor_sweep"]:
             self.check_dir(output_dir)
@@ -194,7 +192,21 @@ class CalcVisualImpact:
         self.create_relative_viewshed("viewsheds_rotor_sweep", rotor_sweep_height, "sweep")
     
     def reclass_relative_viewsheds(self, viewshed_folder_path, new_value, original_value=255):
-        """Function to reclassify relative viewshed as per Palmer 2022"""
+        """Function to reclassify relative viewshed as per Palmer 2022
+        
+        Parameters
+        ----------
+        viewshed_folder_path: str
+            Relative folder path of viewsheds
+        new_value: int
+            New reclassed value of 255
+                Default: 10 for blade end
+                         20 for turbine hub
+                         30 for rotor sweep
+        original_value: int, optional
+            Original value of raster visibility. 
+            Default: 255
+        """
         for file in os.listdir(viewshed_folder_path):
             input_raster = os.path.join(viewshed_folder_path, file)
             # Open the input raster
@@ -223,7 +235,14 @@ class CalcVisualImpact:
         self.reclass_relative_viewsheds("viewsheds_rotor_sweep",new_value=30)
     
     def merge_viewshed_rasters(self, input_file_paths, output_folder_path):
-        """Function to merge reclassified viewshed rasters"""
+        """Function to merge reclassified viewshed rasters
+        
+        Parameters
+        ----------
+        input_file_paths: list
+            Input file paths list contains
+
+        """
         # Open each input raster into list
         src_files_to_mosaic = [rio.open(file) for file in input_file_paths]
         # Merge rasters to hold maximum value in each pixel
