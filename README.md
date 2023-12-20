@@ -7,23 +7,15 @@
 ## How to Install and Use
 ### Installation
 Step 1: Clone the repository
-```
-git clone https://github.com/Sidrcs/viawind.git
-```
 Step 2: Change the directory to viawind folder
-```
-cd <directory_path>
-```
 Step 3: Install environment.yml to install dependencies using Conda
-```
-conda env create -f environment.yml
-```
 Step 4: Activate the Conda environment
-```
-conda activate viawind
-```
 Step 5: Launch Jupyter Notebook from the terminal (Mac) or Anaconda prompt (Windows)
 ```
+git clone https://github.com/Sidrcs/viawind.git
+cd <directory_path>
+conda env create -f environment.yml
+conda activate viawind
 jupyter-notebook
 ```
 
