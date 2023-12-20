@@ -143,12 +143,12 @@ class CalcVisualImpact:
         ----------
         output_dir: str
             Directory file path
-        
         """
         try:
-            # Removes a non-empty folder
+            # Removes a non-empty folder and creates afresh
             if os.path.exists(output_dir):
                 shutil.rmtree(output_dir)
+                os.mkdir(output_dir)
             # Create the output directory if it doesn't exist
             if not os.path.exists(output_dir):
                 os.mkdir(output_dir)
@@ -156,7 +156,17 @@ class CalcVisualImpact:
             print(f"{str(e)}")
     
     def create_relative_viewshed(self, output_dir, height, height_name):
-        """Function to create relative viewsheds based on wind turbine height"""
+        """Function to create relative viewsheds based on wind turbine height
+        
+        Parameters
+        ----------
+        output_dir: str
+            Output directory to store viewsheds
+        height: float
+            Height of the relative viewshed to be created in meters
+        height_name: str
+            String passed as part of file name of the viewshed
+        """
         gdf = self.read_windturbine_file()
         input_dem = self.read_dem()
         # Create the output directory if it doesn't exist
@@ -194,7 +204,19 @@ class CalcVisualImpact:
         self.create_relative_viewshed("viewsheds_rotor_sweep", rotor_sweep_height, "sweep")
     
     def reclass_relative_viewsheds(self, viewshed_folder_path, new_value, original_value=255):
-        """Function to reclassify relative viewshed as per Palmer 2022"""
+        """Function to reclassify relative viewshed as per Palmer 2022
+        
+        Parameters
+        ----------
+        viewshed_folder_path: str
+            Directory folder path to viewsheds
+        new_value: int
+            Value to be replaced with 255
+        original_value: int, default
+            Default value of visibility in a viewshed is 255
+                0: Indicates no visibility
+                255: Indicates visibility
+        """
         for file in os.listdir(viewshed_folder_path):
             input_raster = os.path.join(viewshed_folder_path, file)
             # Open the input raster
@@ -223,7 +245,15 @@ class CalcVisualImpact:
         self.reclass_relative_viewsheds("viewsheds_rotor_sweep",new_value=30)
     
     def merge_viewshed_rasters(self, input_file_paths, output_folder_path):
-        """Function to merge reclassified viewshed rasters"""
+        """Function to merge reclassified viewshed rasters
+        
+        Parameters
+        ----------
+        input_file_paths: str
+            Input file folder paths of viewsheds_blade_end, viewsheds_hub, viewsheds_rotor_sweep
+        output_folder_path: str
+            Output folder path to save merged viewsheds
+        """
         # Open each input raster into list
         src_files_to_mosaic = [rio.open(file) for file in input_file_paths]
         # Merge rasters to hold maximum value in each pixel
@@ -262,7 +292,15 @@ class CalcVisualImpact:
         print(f"Performed raster merge for {len(gdf)*3} rasters and outputs saved to {fpath} ")
         
     def create_multiring_buffer(self, center_point, radii):
-        """Function to create non-intersecting concentric buffers as MultiPolygon"""
+        """Function to create non-intersecting concentric buffers as MultiPolygon
+        
+        Parameters
+        ----------
+        center_point: shapely.geometry.Point
+            shapely Point object
+        radii: list
+            list of radii created with kilo2meter() function
+        """
         buffers = [center_point.buffer(r) for r in radii]
         buffer0 = buffers[0]
         # Extracts the non-intersecting parts of buffers
@@ -274,11 +312,29 @@ class CalcVisualImpact:
         return MultiPolygon(ring_buffers)
     
     def kilo2meter(self, km):
-        """Function to return radius in meters"""
+        """Function to return radius in meters
+
+        Parameters
+        ----------
+        km: float
+            kilometer
+        """
         return km*1000
     
     def rasterize_concentric_buffers(self, ref_raster, buffers, buffer_val_list, output_fpath):
-        """Function to perform rasterization of MultiRingBuffer and output raster"""
+        """Function to perform rasterization of MultiRingBuffer and output raster
+        
+        Parameters
+        ----------
+        ref_raster: str
+            Deflated DEM file path
+        buffers: MultiPolygon
+            MultiPolygon object returned by create_multiring_buffer()
+        buffer_val_list: list
+            List of values to be burned within each buffer of the distance zone raster
+        output_fpath: str
+            Output folder path to store distance zone rasters for each point
+        """
         raster = rio.open(ref_raster)
         # Burns the values from the buffer value list to rasterized buffers
         geom_value = ((geom,value) for geom, value in zip(buffers.geoms, buffer_val_list))
@@ -300,7 +356,13 @@ class CalcVisualImpact:
         raster = None
 
     def create_turbine_multiringbuffer_raster(self, buffer_val_list=None):
-        """Function create MultiRingBuffer rasters for wind turbine locations"""
+        """Function create MultiRingBuffer rasters for wind turbine locations
+        
+        Parameters
+        ----------
+        buffer_val_list: list
+            List of values to be burned within each buffer of the distance zone raster
+        """
         output_dir="raster_buffers"
         self.check_dir(output_dir)
         # Create an empty list to store raster file paths
@@ -334,7 +396,15 @@ class CalcVisualImpact:
         return raster_flist
     
     def create_turbine_viz_prominence(self, input_paths, output_path):
-        """Function to merge distance zone and visual exposure"""
+        """Function to merge distance zone and visual exposure
+        
+        Parameters
+        ----------
+        input_paths: str
+            Input folder paths to merge rasters
+        output_path: str
+            Output folder path to store turbine visual prominence rasters
+        """
         try:
             files = [rxr.open_rasterio(path) for path in input_paths]
             raster_sum = files[0] + files[1]
@@ -427,7 +497,15 @@ class CalcVisualImpact:
         print(f"Reclassification complete for meaningful visibility and outputs saved to {output_dir}")
 
     def create_cumulative_rasters(self, input_paths, output_path):
-        """Function to perform raster sum of input rasters"""
+        """Function to perform raster sum of input rasters
+        
+        Parameters
+        ----------
+        input_paths: str
+            Input folder paths to merge rasters
+        output_path: str
+            Output folder path to store cumulative rasters
+        """
         # Initialize raster_sum
         raster_sum = None
         # Open each raster file and accumulate values
@@ -468,7 +546,15 @@ class CalcVisualImpact:
         return output_path
     
     def calc_mean_prominence(self, vizprom_fpath, mv_fpath):
-        """Function to divide visual prominence and meaningful visibility"""
+        """Function to divide visual prominence and meaningful visibility
+        
+        Parameters
+        ----------
+        vizprom_fpath: str
+            Visual prominence rasters folder path
+        mv_fpath: str
+            Meaningful visibility rasters folder path
+        """
         output_dir="cumulative_outputs"
         with rio.open(vizprom_fpath) as src1, rio.open(mv_fpath) as src2:
             # Read the raster datasets
@@ -496,7 +582,13 @@ class CalcVisualImpact:
         return fpath
     
     def perform_visual_prominence_bind(self, fname="wind_turbine_prominence.shp"):
-        """Function to bind visual prominence value to turbine location in geodataframe"""
+        """Function to bind visual prominence value to turbine location in geodataframe
+        
+        Parameters
+        ----------
+        fname: str, optional
+            Filename of the created shapefile with visual prominence
+        """
         output_dir="cumulative_outputs"
         gdf = self.read_windturbine_file()
         prominence_raster = rio.open(self.perform_mean_prominence())
@@ -519,7 +611,14 @@ class CalcVisualImpact:
         return gdf
 
     def visualize_mean_prominence(self, county_state_title):
-        """To visualize wind turbine mean prominence"""
+        """To visualize wind turbine mean prominence
+        
+        Parameters
+        ----------
+        county_state_title: str
+            Title in format "County, State"
+                Eg: Dane County, WI
+        """
         # Read tuple with geodataframe, column name
         gdf = self.perform_visual_prominence_bind()
         col_name = "mean_prominence"
@@ -589,7 +688,15 @@ class CalcVisualImpact:
             print("Saved visual impact map to the current directory")
 
     def visualize_dem(self, cmap="gist_earth", title="Digital Elevation Model"):
-        """Function to visualize DEM"""
+        """Function to visualize DEM
+        
+        Parameters
+        ----------
+        cmap: str, optional
+            colormap schema of matplotlib
+        title: str, optional
+            Title of the DEM visual
+        """
         try:
             dst = rio.open(self.read_dem())
             fig, ax = plt.subplots(figsize=(10,5))
@@ -606,7 +713,19 @@ class CalcVisualImpact:
 
     # Creates a plot for viewshed with legend
     def visualize_viewshed_windturbine(self, viewshed_fpath, turbine_index, cmap="gist_yarg", title="Viewshed for Wind Turbine"):
-        """Function to create visualization of viewshed with legend"""
+        """Function to create visualization of viewshed with legend
+        
+        Parameters
+        ----------
+        viewshed_fpath: str
+            Viewshed raster file path
+        turbine_index: int
+            Index value of the turbine to be visualized
+        cmap: str, optional
+            colormap schema of matplotlib
+        title: str, optional
+            Title of the viewshed with wind turbine
+        """
         try:
             gdf = self.read_windturbine_file()
             if not isinstance(turbine_index, int):
@@ -652,7 +771,12 @@ class CalcVisualImpact:
         self.visualize_viewshed_windturbine(viewshed_fpath, turbine_index)
 
     def visualize_wind_turbines(self, title="Wind Turbine locations"):
-        """Function to visualize wind turbine from geodataframe"""
+        """Function to visualize wind turbine from geodataframe
+
+        Parameters
+        ----------
+        title: str, optional
+        """
         gdf = self.read_windturbine_file()
         gdf.plot(marker="1", color="#31a354")
         plt.title(title)
@@ -661,7 +785,12 @@ class CalcVisualImpact:
         plt.show()
 
     def run_via_pipeline(self, county_state_title):
-        """Function to run complete VIA GIS pipeline"""
+        """Function to run complete VIA GIS pipeline
+        
+        Parameters
+        ----------
+        county_state_title: str
+        """
         try:
             print("VIA GIS Pipeline is getting started....")
             file_size = os.path.getsize(self.dem_fpath)
