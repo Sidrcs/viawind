@@ -147,6 +147,7 @@ class CalcVisualImpact:
             # Removes a non-empty folder
             if os.path.exists(output_dir):
                 shutil.rmtree(output_dir)
+                os.mkdir(output_dir)
             # Create the output directory if it doesn't exist
             if not os.path.exists(output_dir):
                 os.mkdir(output_dir)
